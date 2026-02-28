@@ -1,3 +1,5 @@
+from collections import Counter
+
 class Vocabulary:
     def __init__(self):
         # Token speciali con ID fissi

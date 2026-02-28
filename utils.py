@@ -60,7 +60,7 @@ def predict_beam_search(model, img, vocab, k=3, max_len=150):
     
     with torch.no_grad():
         # 1. Encode immagine
-        memory = model.encoder_cnn(img) 
+        memory = model.encoder(img) 
 
         # 2. Inizializza il fascio: (punteggio_log, sequenza_indici)
         # Partiamo con <sos> e punteggio 0
@@ -79,7 +79,7 @@ def predict_beam_search(model, img, vocab, k=3, max_len=150):
                 sz = ys.size(1)
                 tgt_mask = torch.triu(torch.ones(sz, sz, device=device) * float('-inf'), diagonal=1)
                 
-                out = model.decoder_transformer(ys, memory, tgt_mask=tgt_mask)
+                out = model.decoder(ys, memory, tgt_mask=tgt_mask)
                 
                 # Prendi le log-probabilità dell'ultimo token
                 log_probs = torch.log_softmax(out[:, -1, :], dim=-1).squeeze(0)

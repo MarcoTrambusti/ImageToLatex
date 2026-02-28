@@ -67,9 +67,9 @@ def main():
     print("Initializing model...")
     model = Im2LatexModel(vocab=vocab, device=device)
 
-    model.train(
+    model.train_model(
         train_loader=train_loader,
-        epochs=12,
+        epochs=1,
         val_loader=val_loader
     )
 
@@ -92,7 +92,7 @@ def main():
 
     # 3. Confronto Greedy vs Beam
     print("--- CONFRONTO SUL TEST SET ---")
-    greedy_tokens = model.predict(model, example_img, vocab) 
+    greedy_tokens = model.predict(example_img) 
     beam_tokens = predict_beam_search(model, example_img, vocab, k=3)
 
     print(f"REAL:   {clean_formula(example_tgt[0], vocab)}")

@@ -1,3 +1,8 @@
+from torch.utils.data import Dataset
+from PIL import Image
+import io
+import torch
+
 class Im2LatexDataset(Dataset):
     def __init__(self, df, vocab, tokenized_formulas, transform = None):
         self.df = df
@@ -9,7 +14,7 @@ class Im2LatexDataset(Dataset):
         return len(self.df)
     
     def __getitem__(self, index):
-        img_bytes = self.df.iloc[index]['image.bytes']
+        img_bytes = self.df.iloc[index]['image']['bytes']
         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
         if self.transform:

@@ -86,7 +86,7 @@ class Im2LatexModel(nn.Module):
 
         return self.decoder(tgt_tokens, memory, tgt_mask)
 
-    def train(self, train_loader=None, epochs=None, val_loader=None):
+    def train_model(self, train_loader=None, epochs=None, val_loader=None):
         """
         Se chiamato senza argomenti → comportamento standard PyTorch.
         Se chiamato con train_loader e epochs → esegue il training loop.
