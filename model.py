@@ -207,6 +207,55 @@ class Im2LatexModel(nn.Module):
 
         return [self.vocab.itos[idx.item()] for idx in ys[0]]
 
+    def predict_beam_search(self, img, k=3, max_len=150):
+        super().eval()
+        device = img.device
+        vocab_size = len(self.vocab.stoi)
+        
+        with torch.no_grad():
+            # 1. Encode immagine
+            memory = self.encoder(img) 
+
+            # 2. Inizializza il fascio: (punteggio_log, sequenza_indici)
+            # Partiamo con <sos> e punteggio 0
+            beams = [(0.0, [self.vocab.stoi["<sos>"]])]
+
+            for _ in range(max_len):
+                new_beams = []
+                for score, seq in beams:
+                    # Se la sequenza è già finita, la manteniamo così com'è
+                    if seq[-1] == self.vocab.stoi["<eos>"]:
+                        new_beams.append((score, seq))
+                        continue
+                    
+                    # Decoder forward per l'ultimo stato della sequenza
+                    ys = torch.tensor([seq], device=device)
+                    sz = ys.size(1)
+                    tgt_mask = torch.triu(torch.ones(sz, sz, device=device) * float('-inf'), diagonal=1)
+                    
+                    out = self.decoder(ys, memory, tgt_mask=tgt_mask)
+                    
+                    # Prendi le log-probabilità dell'ultimo token
+                    log_probs = torch.log_softmax(out[:, -1, :], dim=-1).squeeze(0)
+                    
+                    # Prendi i k migliori candidati per questo ramo
+                    topk_probs, topk_idx = log_probs.topk(k)
+                    
+                    for i in range(k):
+                        new_beams.append((score + topk_probs[i].item(), seq + [topk_idx[i].item()]))
+                
+                # Seleziona i k migliori in assoluto tra tutti i rami espansi
+                beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
+                
+                # Se tutti i rami hanno incontrato <eos>, abbiamo finito
+                if all(s[-1] == self.vocab.stoi["<eos>"] for _, s in beams):
+                    break
+            
+            # Restituisci la sequenza migliore (la prima della lista ordinata)
+            best_seq = beams[0][1]
+            return [self.vocab.itos[idx] for idx in best_seq]
+
+
     def save(self, path):
         torch.save(self.state_dict(), path)
 

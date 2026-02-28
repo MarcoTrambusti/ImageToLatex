@@ -93,7 +93,7 @@ def main():
     # 3. Confronto Greedy vs Beam
     print("--- CONFRONTO SUL TEST SET ---")
     greedy_tokens = model.predict(example_img) 
-    beam_tokens = predict_beam_search(model, example_img, vocab, k=3)
+    beam_tokens = model.predict_beam_search(example_img)
 
     print(f"REAL:   {clean_formula(example_tgt[0], vocab)}")
     print(f"GREEDY: {clean_formula(greedy_tokens, vocab)}")
