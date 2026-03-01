@@ -12,7 +12,6 @@ import re
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 def collate_fn(batch):
     imgs, captions = zip(*batch)
     imgs = torch.stack(imgs)
@@ -63,50 +62,7 @@ def get_final_tokens(formula):
     return ["<sos>"] + parse_nodes(nodes) + ["<eos>"]
 
 
-def predict_beam_search(model, img, vocab, k=3, max_len=150):
-    model.eval()
-    device = img.device
-    vocab_size = len(vocab.stoi)
-
-    with torch.no_grad():
-        memory = model.encoder(img)
-
-        beams = [(0.0, [vocab.stoi["<sos>"]])]
-
-        for _ in range(max_len):
-            new_beams = []
-            for score, seq in beams:
-                if seq[-1] == vocab.stoi["<eos>"]:
-                    new_beams.append((score, seq))
-                    continue
-
-                ys = torch.tensor([seq], device=device)
-                sz = ys.size(1)
-                tgt_mask = torch.triu(
-                    torch.ones(sz, sz, device=device) * float("-inf"), diagonal=1
-                )
-
-                out = model.decoder(ys, memory, tgt_mask=tgt_mask)
-
-                log_probs = torch.log_softmax(out[:, -1, :], dim=-1).squeeze(0)
-
-                topk_probs, topk_idx = log_probs.topk(k)
-
-                for i in range(k):
-                    new_beams.append(
-                        (score + topk_probs[i].item(), seq + [topk_idx[i].item()])
-                    )
-
-            beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
-
-            if all(s[-1] == vocab.stoi["<eos>"] for _, s in beams):
-                break
-
-        best_seq = beams[0][1]
-        return [vocab.itos[idx] for idx in best_seq]
-
-
-def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3):
+def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, output_file="evaluation_results.txt"):
     model.eval()
 
     em_count = 0
@@ -114,7 +70,6 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3):
     edit_distances = []
 
     smoothie = SmoothingFunction().method4
-    print(f"Valutazione ufficiale su {num_samples} campioni...")
 
     with torch.no_grad():
         for i, (img, tgt) in enumerate(dataloader):
@@ -147,27 +102,26 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3):
                 norm_ed = 1.0
             edit_distances.append(norm_ed)
 
-    print("\n" + "=" * 40)
-    print(f"REPORT FINALE SUL TEST SET")
-    print(f"Exact Match (EM):     {em_count/num_samples*100:.2f}%")
-    print(f"BLEU Score:           {np.mean(bleu_scores):.4f}")
-    print(f"Edit Distance (Text): {np.mean(edit_distances)*100:.2f}%")
-    print("=" * 40)
+    report = (
+        "\n" + "=" * 40 + "\n" +
+        "FINAL TEST SET REPORT\n" +
+        f"Exact Match (EM):     {em_count/num_samples*100:.2f}%\n" +
+        f"BLEU Score:           {np.mean(bleu_scores):.4f}\n" +
+        f"Edit Distance (Text): {np.mean(edit_distances)*100:.2f}%\n" +
+        "=" * 40 + "\n"
+    )
 
+    with open(output_file, "w") as f:
+        f.write(report)
 
 def clean_formula(tensor, vocab):
-    """
-    Decodifica un tensor di token in stringa LaTeX.
-    """
     if isinstance(tensor, torch.Tensor):
         tokens = [vocab.itos[idx.item()] for idx in tensor]
     else:
         tokens = tensor
 
-    # Rimuovi token speciali
     tokens = [t for t in tokens if t not in ("<pad>", "<sos>", "<eos>")]
 
-    # Unisci in stringa
     formula = " ".join(tokens)
 
     return formula.strip()
