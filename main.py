@@ -1,44 +1,43 @@
 import torch
 from torch.utils.data import DataLoader
-from utils import get_final_tokens, collate_fn, evaluate_official_metrics, clean_formula, predict_beam_search
+from utils import (
+    get_final_tokens,
+    collate_fn,
+    evaluate_official_metrics,
+    clean_formula,
+    predict_beam_search,
+)
 from model import Im2LatexModel
-# Standard imports
 import sys
-print(sys.executable)
-
 import matplotlib.pyplot as plt
-plt.style.use('dark_background')
 import pandas as pd
-# Standard Pytorch imports (note the aliases).
 import torch
 import torchvision.transforms as T
 from vocabulary import Vocabulary
 from model import Im2LatexModel
 from Im2LatexDataset import Im2LatexDataset
 
+
 def main():
     print("loading ...")
     base_url = "hf://datasets/yuntian-deng/im2latex-100k/"
     splits = {
-        'train': 'data/train-00000-of-00001-93885635ef7c6898.parquet', 
-        'test': 'data/test-00000-of-00001-fce261550cd3f5db.parquet', 
-        'val': 'data/val-00000-of-00001-3f88ebb0c1272ccf.parquet'
+        "train": "data/train-00000-of-00001-93885635ef7c6898.parquet",
+        "test": "data/test-00000-of-00001-fce261550cd3f5db.parquet",
+        "val": "data/val-00000-of-00001-3f88ebb0c1272ccf.parquet",
     }
 
     train_df = pd.read_parquet(base_url + splits["train"])
-    val_df   = pd.read_parquet(base_url + splits["val"])
-    test_df  = pd.read_parquet(base_url + splits["test"])
+    val_df = pd.read_parquet(base_url + splits["val"])
+    test_df = pd.read_parquet(base_url + splits["test"])
     print(train_df.size)
 
     print("First 5 records: \n", train_df.head())
     print("First 5 records formulas: \n", train_df.head().formula)
 
-
-    transform = T.Compose([
-        T.Resize((64, 320)), # Dimensioni immagini del dataset (Height, Width)
-        T.ToTensor(),
-        T.Normalize((0.5,), (0.5,)) 
-    ])
+    transform = T.Compose(
+        [T.Resize((64, 320)), T.ToTensor(), T.Normalize((0.5,), (0.5,))]
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -52,9 +51,7 @@ def main():
     train_dataset = Im2LatexDataset(
         train_df, vocab, tokenized_train, transform=transform
     )
-    val_dataset = Im2LatexDataset(
-        val_df, vocab, tokenized_val, transform=transform
-    )
+    val_dataset = Im2LatexDataset(val_df, vocab, tokenized_val, transform=transform)
 
     train_loader = DataLoader(
         train_dataset, batch_size=32, shuffle=True, collate_fn=collate_fn
@@ -67,11 +64,7 @@ def main():
     print("Initializing model...")
     model = Im2LatexModel(vocab=vocab, device=device)
 
-    model.train_model(
-        train_loader=train_loader,
-        epochs=1,
-        val_loader=val_loader
-    )
+    model.train_model(train_loader=train_loader, epochs=5, val_loader=val_loader)
 
     example_img, _ = next(iter(val_loader))
     example_img = example_img[0].unsqueeze(0)
@@ -92,7 +85,7 @@ def main():
 
     # 3. Confronto Greedy vs Beam
     print("--- CONFRONTO SUL TEST SET ---")
-    greedy_tokens = model.predict(example_img) 
+    greedy_tokens = model.predict(example_img)
     beam_tokens = model.predict_beam_search(example_img)
 
     print(f"REAL:   {clean_formula(example_tgt[0], vocab)}")
@@ -100,7 +93,6 @@ def main():
     print(f"BEAM:   {clean_formula(beam_tokens, vocab)}")
 
     evaluate_official_metrics(model, test_loader, vocab, num_samples=100)
-
 
 
 if __name__ == "__main__":

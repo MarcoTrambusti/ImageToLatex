@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 from torchvision.models import ResNet18_Weights
+from tqdm import tqdm
+
 
 class CnnEncoder(nn.Module):
     def __init__(self, d_model=256, pretrained=True):
@@ -11,10 +13,7 @@ class CnnEncoder(nn.Module):
         resnet = models.resnet18(weights=weights)
 
         self.stem = nn.Sequential(
-            resnet.conv1,
-            resnet.bn1,
-            nn.ReLU(inplace=True),
-            resnet.maxpool
+            resnet.conv1, resnet.bn1, nn.ReLU(inplace=True), resnet.maxpool
         )
 
         self.layer1 = resnet.layer1
@@ -40,6 +39,7 @@ class CnnEncoder(nn.Module):
         x = x.permute(0, 2, 1)
         return x
 
+
 class TransformerDecoder(nn.Module):
     def __init__(self, vocab_size, d_model, nhead, num_layers):
         super().__init__()
@@ -53,13 +53,14 @@ class TransformerDecoder(nn.Module):
         self.fc_out = nn.Linear(d_model, vocab_size)
 
     def forward(self, tgt, memory, tgt_mask):
-        tgt_emb = self.embedding(tgt) + self.pos_encoding[:, :tgt.size(1), :]
+        tgt_emb = self.embedding(tgt) + self.pos_encoding[:, : tgt.size(1), :]
         output = self.decoder(tgt_emb, memory, tgt_mask=tgt_mask)
         return self.fc_out(output)
 
+
 class Im2LatexModel(nn.Module):
 
-    def __init__(self, vocab, d_model=256, nhead=8, num_layers=4, lr=1e-4, device=None):
+    def __init__(self, vocab, d_model=256, nhead=8, num_layers=4, lr=5e-5, device=None):
         super().__init__()
 
         self.vocab = vocab
@@ -68,9 +69,7 @@ class Im2LatexModel(nn.Module):
         )
 
         self.encoder = CnnEncoder(d_model)
-        self.decoder = TransformerDecoder(
-            len(vocab.stoi), d_model, nhead, num_layers
-        )
+        self.decoder = TransformerDecoder(len(vocab.stoi), d_model, nhead, num_layers)
 
         self.to(self.device)
 
@@ -100,11 +99,14 @@ class Im2LatexModel(nn.Module):
         history = {"train_loss": [], "val_loss": []}
 
         for epoch in range(epochs):
-
             super().train()
             total_train_loss = 0
 
-            for imgs, captions in train_loader:
+            train_bar = tqdm(
+                train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", leave=False
+            )
+
+            for imgs, captions in train_bar:
 
                 imgs = imgs.to(self.device)
                 captions = captions.to(self.device)
@@ -118,8 +120,7 @@ class Im2LatexModel(nn.Module):
                 preds = self.forward(imgs, tgt_input)
 
                 loss = self.criterion(
-                    preds.reshape(-1, preds.shape[-1]),
-                    tgt_expected.reshape(-1)
+                    preds.reshape(-1, preds.shape[-1]), tgt_expected.reshape(-1)
                 )
 
                 self.optimizer.zero_grad()
@@ -129,16 +130,23 @@ class Im2LatexModel(nn.Module):
 
                 total_train_loss += loss.item()
 
+                # aggiorna barra con loss corrente
+                train_bar.set_postfix(loss=loss.item())
+
             avg_train_loss = total_train_loss / len(train_loader)
-            history["train_loss"].append(avg_train_loss)
 
             # VALIDATION
             if val_loader is not None:
                 super().eval()
                 total_val_loss = 0
 
+                val_bar = tqdm(
+                    val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]", leave=False
+                )
+
                 with torch.no_grad():
-                    for imgs, captions in val_loader:
+                    for imgs, captions in val_bar:
+
                         imgs = imgs.to(self.device)
                         captions = captions.to(self.device)
 
@@ -148,21 +156,22 @@ class Im2LatexModel(nn.Module):
                         preds = self.forward(imgs, tgt_input)
 
                         loss = self.criterion(
-                            preds.reshape(-1, preds.shape[-1]),
-                            tgt_expected.reshape(-1)
+                            preds.reshape(-1, preds.shape[-1]), tgt_expected.reshape(-1)
                         )
 
                         total_val_loss += loss.item()
+                        val_bar.set_postfix(val_loss=loss.item())
 
                 avg_val_loss = total_val_loss / len(val_loader)
                 history["val_loss"].append(avg_val_loss)
 
-                print(f"Epoch [{epoch+1}/{epochs}] "
-                      f"Train: {avg_train_loss:.4f} | "
-                      f"Val: {avg_val_loss:.4f}")
+                print(
+                    f"Epoch [{epoch+1}/{epochs}] "
+                    f"Train: {avg_train_loss:.4f} | "
+                    f"Val: {avg_val_loss:.4f}"
+                )
             else:
-                print(f"Epoch [{epoch+1}/{epochs}] "
-                      f"Train: {avg_train_loss:.4f}")
+                print(f"Epoch [{epoch+1}/{epochs}] " f"Train: {avg_train_loss:.4f}")
 
         return history
 
@@ -179,10 +188,7 @@ class Im2LatexModel(nn.Module):
             memory = self.encoder(img)
 
             ys = torch.full(
-                (1, 1),
-                self.vocab.stoi["<sos>"],
-                dtype=torch.long,
-                device=self.device
+                (1, 1), self.vocab.stoi["<sos>"], dtype=torch.long, device=self.device
             )
 
             for _ in range(max_len):
@@ -190,7 +196,7 @@ class Im2LatexModel(nn.Module):
                 tgt_mask = torch.triu(
                     torch.ones(ys.size(1), ys.size(1), device=self.device)
                     * float("-inf"),
-                    diagonal=1
+                    diagonal=1,
                 )
 
                 out = self.decoder(ys, memory, tgt_mask)
@@ -198,8 +204,7 @@ class Im2LatexModel(nn.Module):
                 next_token = out[:, -1, :].argmax(dim=-1).item()
 
                 ys = torch.cat(
-                    [ys, torch.tensor([[next_token]], device=self.device)],
-                    dim=1
+                    [ys, torch.tensor([[next_token]], device=self.device)], dim=1
                 )
 
                 if next_token == self.vocab.stoi["<eos>"]:
@@ -211,10 +216,10 @@ class Im2LatexModel(nn.Module):
         super().eval()
         device = img.device
         vocab_size = len(self.vocab.stoi)
-        
+
         with torch.no_grad():
             # 1. Encode immagine
-            memory = self.encoder(img) 
+            memory = self.encoder(img)
 
             # 2. Inizializza il fascio: (punteggio_log, sequenza_indici)
             # Partiamo con <sos> e punteggio 0
@@ -227,34 +232,37 @@ class Im2LatexModel(nn.Module):
                     if seq[-1] == self.vocab.stoi["<eos>"]:
                         new_beams.append((score, seq))
                         continue
-                    
+
                     # Decoder forward per l'ultimo stato della sequenza
                     ys = torch.tensor([seq], device=device)
                     sz = ys.size(1)
-                    tgt_mask = torch.triu(torch.ones(sz, sz, device=device) * float('-inf'), diagonal=1)
-                    
+                    tgt_mask = torch.triu(
+                        torch.ones(sz, sz, device=device) * float("-inf"), diagonal=1
+                    )
+
                     out = self.decoder(ys, memory, tgt_mask=tgt_mask)
-                    
+
                     # Prendi le log-probabilità dell'ultimo token
                     log_probs = torch.log_softmax(out[:, -1, :], dim=-1).squeeze(0)
-                    
+
                     # Prendi i k migliori candidati per questo ramo
                     topk_probs, topk_idx = log_probs.topk(k)
-                    
+
                     for i in range(k):
-                        new_beams.append((score + topk_probs[i].item(), seq + [topk_idx[i].item()]))
-                
+                        new_beams.append(
+                            (score + topk_probs[i].item(), seq + [topk_idx[i].item()])
+                        )
+
                 # Seleziona i k migliori in assoluto tra tutti i rami espansi
                 beams = sorted(new_beams, key=lambda x: x[0], reverse=True)[:k]
-                
+
                 # Se tutti i rami hanno incontrato <eos>, abbiamo finito
                 if all(s[-1] == self.vocab.stoi["<eos>"] for _, s in beams):
                     break
-            
+
             # Restituisci la sequenza migliore (la prima della lista ordinata)
             best_seq = beams[0][1]
             return [self.vocab.itos[idx] for idx in best_seq]
-
 
     def save(self, path):
         torch.save(self.state_dict(), path)
