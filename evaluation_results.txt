@@ -2,6 +2,6 @@
 ========================================
 FINAL TEST SET REPORT
 Exact Match (EM):     2.00%
-BLEU Score:           0.0190
-Edit Distance (Text): 42.66%
+BLEU Score:           0.0244
+Edit Distance (Text): 46.41%
 ========================================

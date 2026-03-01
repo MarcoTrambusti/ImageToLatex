@@ -78,7 +78,7 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, ou
 
             img = img.to(device)
 
-            pred_tokens = predict_beam_search(model, img, vocab, k=k)
+            pred_tokens = model.predict_beam_search(img, k=k)
 
             pred_str = clean_formula(pred_tokens, vocab)
             real_str = clean_formula(tgt[0], vocab)

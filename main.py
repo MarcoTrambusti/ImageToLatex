@@ -4,14 +4,15 @@ from utils import (
     get_final_tokens,
     collate_fn,
     evaluate_official_metrics,
-    clean_formula,
-    predict_beam_search,
+    clean_formula
 )
 from model import Im2LatexModel
 import pandas as pd
 import torchvision.transforms as T
 from vocabulary import Vocabulary
 from dataset import Im2LatexDataset
+import matplotlib.pyplot as plt
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,7 +26,7 @@ SPLITS = {
 IMAGE_SIZE = (64, 320)
 BATCH_SIZE_TRAIN = 32
 BATCH_SIZE_TEST = 1
-EPOCHS = 1
+EPOCHS = 20
 NUM_TEST_SAMPLES = 100
 
 NORMALIZE_MEAN = (0.5,)
@@ -74,8 +75,23 @@ def main():
     print("Initializing model...")
     model = Im2LatexModel(vocab=vocab)
     print("Starting training...\n")
-    model.train_model(train_loader=train_loader, epochs=EPOCHS, val_loader=val_loader)
+    history = model.train_model(train_loader=train_loader, epochs=EPOCHS, val_loader=val_loader)
     print("Training completed.\n")
+
+    print("Drawing learning curve...\n")
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(history["train_loss"], label="Training Loss")
+    plt.plot(history["val_loss"], label="Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Learning Curve")
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig("learning_curve.png", dpi=300, bbox_inches="tight")
+    plt.close()
+    print("Learning curve saved.\n")
 
     print("Preparing test set for evaluation...")
     tokenized_test = [get_final_tokens(f) for f in test_df.formula.values]
