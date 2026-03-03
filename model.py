@@ -17,7 +17,7 @@ class Im2LatexModel(nn.Module):
         - Prediction methods: greedy decoding and beam search.
     """
 
-    def __init__(self, vocab, d_model=256, nhead=8, num_layers=4, lr=5e-5):
+    def __init__(self, vocab, d_model=256, nhead=8, num_layers=6, lr=5e-5):
         """
         Initializes the model components and training utilities.
 
