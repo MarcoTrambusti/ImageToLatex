@@ -111,6 +111,10 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, ou
     with open(output_file_beam, "w") as f:
         f.write(report)
 
+    em_count = 0
+    bleu_scores = []
+    edit_distances = []
+    
     with torch.no_grad():
         for i, (img, tgt) in enumerate(dataloader):
             if i >= num_samples:
@@ -141,7 +145,7 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, ou
 
     report = (
         "\n" + "=" * 40 + "\n" +
-        "FINAL TEST SET REPORT Gready\n" +
+        "FINAL TEST SET REPORT Greedy\n" +
         f"Exact Match (EM):     {em_count/num_samples*100:.2f}%\n" +
         f"BLEU Score:           {np.mean(bleu_scores):.4f}\n" +
         f"Edit Distance (Text): {np.mean(edit_distances)*100:.2f}%\n" +
