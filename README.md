@@ -2,6 +2,8 @@
 [![University of Florence](https://i.imgur.com/1NmBfH0.png)](https://ingegneria.unifi.it)
 Made by [Mattia Marilli](https://github.com/mattiamarilli) and [Marco Trambusti](https://github.com/MarcoTrambusti)
 
+📄 **[Read the Full Report](https://github.com/MarcoTrambusti/ImageToLatex/blob/master/report/FML_Lab_Report.pdf)** 
+
 # ImageToLatex
 
 Project for **image → LaTeX formula** conversion built with PyTorch, using an **Encoder-Decoder** architecture:
