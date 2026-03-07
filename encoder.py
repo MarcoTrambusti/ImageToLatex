@@ -6,8 +6,6 @@ from tqdm import tqdm
 class CustomCnnEncoder(nn.Module):
     def __init__(self, d_model=256):
         super().__init__()
-
-        # Una CNN semplice (stile ResNet ridotta)
         
         self.conv = nn.Sequential(
 
@@ -15,22 +13,19 @@ class CustomCnnEncoder(nn.Module):
             nn.Conv2d(3, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.GELU(),
-            nn.Conv2d(64, 64, 3, stride=2, padding=1),   # ↓ invece di MaxPool
-            # nn.Dropout2d(0.1),
+            nn.Conv2d(64, 64, 3, stride=2, padding=1), 
 
             # Block 2
             nn.Conv2d(64, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.GELU(),
             nn.Conv2d(128, 128, 3, stride=2, padding=1),
-            # nn.Dropout2d(0.1),
 
             # Block 3
             nn.Conv2d(128, 256, 3, padding=1),
             nn.BatchNorm2d(256),
             nn.GELU(),
             nn.Conv2d(256, 256, 3, stride=2, padding=1),
-            #nn.Dropout2d(0.1),
 
             # Block 4 (kernel grande)
             nn.Conv2d(256, d_model, 5, padding=2),
