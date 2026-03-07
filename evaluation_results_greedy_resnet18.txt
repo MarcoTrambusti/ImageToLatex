@@ -1,7 +1,0 @@
-
-========================================
-FINAL TEST SET REPORT Gready
-Exact Match (EM):     37.00%
-BLEU Score:           0.7729
-Edit Distance (Text): 87.21%
-========================================

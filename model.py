@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 from torchvision.models import ResNet18_Weights
 from tqdm import tqdm
-from encoder import CnnEncoder
+from encoder import ResNetCnnEncoder, CustomCnnEncoder
 from decoder import TransformerDecoder
 
 class Im2LatexModel(nn.Module):
@@ -17,7 +17,7 @@ class Im2LatexModel(nn.Module):
         - Prediction methods: greedy decoding and beam search.
     """
 
-    def __init__(self, vocab, d_model=256, nhead=8, num_layers=6, lr=5e-5):
+    def __init__(self, vocab, d_model=256, nhead=8, num_layers=4, lr=5e-5, isEncoderCustom=False):
         """
         Initializes the model components and training utilities.
 
@@ -34,7 +34,12 @@ class Im2LatexModel(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Encoder extracts feature maps from images
-        self.encoder = CnnEncoder(d_model)
+        if isEncoderCustom:
+            print("\n Working with custom CNN \n")
+            self.encoder = CustomCnnEncoder(d_model)
+        else:
+            print("\n Working with ResNet18 CNN \n")
+            self.encoder = ResNetCnnEncoder(d_model)
 
         # Decoder generates sequences from encoder memory
         self.decoder = TransformerDecoder(len(vocab.stoi), d_model, nhead, num_layers)

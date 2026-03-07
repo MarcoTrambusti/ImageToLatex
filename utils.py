@@ -12,6 +12,7 @@ import re
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 def collate_fn(batch):
     imgs, captions = zip(*batch)
     imgs = torch.stack(imgs)
@@ -62,18 +63,38 @@ def get_final_tokens(formula):
     return ["<sos>"] + parse_nodes(nodes) + ["<eos>"]
 
 
-def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, output_file_beam="evaluation_results_beam.txt", output_file_greedy="evaluation_results_greedy.txt"):
+def evaluate_official_metrics(
+    model,
+    dataloader,
+    vocab,
+    num_samples=None,
+    k=3,
+    output_file_beam="evaluation_results_beam.txt",
+    output_file_greedy="evaluation_results_greedy.txt",
+):
     model.eval()
+
+    dataset_size = len(dataloader.dataset) if hasattr(dataloader, "dataset") else None
+    if dataset_size is None:
+        samples_to_evaluate = (
+            num_samples if num_samples is not None else "all available"
+        )
+    elif num_samples is None:
+        samples_to_evaluate = dataset_size
+    else:
+        samples_to_evaluate = min(num_samples, dataset_size)
+    print(f"Evaluation samples: {samples_to_evaluate}")
 
     em_count = 0
     bleu_scores = []
     edit_distances = []
+    evaluated_samples = 0
 
     smoothie = SmoothingFunction().method4
 
     with torch.no_grad():
         for i, (img, tgt) in enumerate(dataloader):
-            if i >= num_samples:
+            if num_samples is not None and i >= num_samples:
                 break
 
             img = img.to(device)
@@ -98,14 +119,22 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, ou
             else:
                 norm_ed = 1.0
             edit_distances.append(norm_ed)
+            evaluated_samples += 1
+
+    em_pct = (em_count / evaluated_samples * 100) if evaluated_samples > 0 else 0.0
+    bleu_mean = float(np.mean(bleu_scores)) if bleu_scores else 0.0
+    edit_mean = (float(np.mean(edit_distances)) * 100) if edit_distances else 0.0
 
     report = (
-        "\n" + "=" * 40 + "\n" +
-        "FINAL TEST SET REPORT Beam Search\n" +
-        f"Exact Match (EM):     {em_count/num_samples*100:.2f}%\n" +
-        f"BLEU Score:           {np.mean(bleu_scores):.4f}\n" +
-        f"Edit Distance (Text): {np.mean(edit_distances)*100:.2f}%\n" +
-        "=" * 40 + "\n"
+        "\n"
+        + "=" * 40
+        + "\n"
+        + "FINAL TEST SET REPORT Beam Search\n"
+        + f"Exact Match (EM):     {em_pct:.2f}%\n"
+        + f"BLEU Score:           {bleu_mean:.4f}\n"
+        + f"Edit Distance (Text): {edit_mean:.2f}%\n"
+        + "=" * 40
+        + "\n"
     )
 
     with open(output_file_beam, "w") as f:
@@ -114,10 +143,11 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, ou
     em_count = 0
     bleu_scores = []
     edit_distances = []
-    
+    evaluated_samples = 0
+
     with torch.no_grad():
         for i, (img, tgt) in enumerate(dataloader):
-            if i >= num_samples:
+            if num_samples is not None and i >= num_samples:
                 break
 
             img = img.to(device)
@@ -142,18 +172,27 @@ def evaluate_official_metrics(model, dataloader, vocab, num_samples=100, k=3, ou
             else:
                 norm_ed = 1.0
             edit_distances.append(norm_ed)
+            evaluated_samples += 1
+
+    em_pct = (em_count / evaluated_samples * 100) if evaluated_samples > 0 else 0.0
+    bleu_mean = float(np.mean(bleu_scores)) if bleu_scores else 0.0
+    edit_mean = (float(np.mean(edit_distances)) * 100) if edit_distances else 0.0
 
     report = (
-        "\n" + "=" * 40 + "\n" +
-        "FINAL TEST SET REPORT Greedy\n" +
-        f"Exact Match (EM):     {em_count/num_samples*100:.2f}%\n" +
-        f"BLEU Score:           {np.mean(bleu_scores):.4f}\n" +
-        f"Edit Distance (Text): {np.mean(edit_distances)*100:.2f}%\n" +
-        "=" * 40 + "\n"
+        "\n"
+        + "=" * 40
+        + "\n"
+        + "FINAL TEST SET REPORT Greedy\n"
+        + f"Exact Match (EM):     {em_pct:.2f}%\n"
+        + f"BLEU Score:           {bleu_mean:.4f}\n"
+        + f"Edit Distance (Text): {edit_mean:.2f}%\n"
+        + "=" * 40
+        + "\n"
     )
 
     with open(output_file_greedy, "w") as f:
         f.write(report)
+
 
 def clean_formula(tensor, vocab):
     if isinstance(tensor, torch.Tensor):

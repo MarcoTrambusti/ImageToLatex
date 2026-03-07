@@ -7,3 +7,6 @@ tqdm
 numpy
 pylatexenc
 nltk
+fastparquet
+pyarrow
+huggingface_hub

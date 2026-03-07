@@ -1,7 +1,0 @@
-
-========================================
-FINAL TEST SET REPORT Beam Search
-Exact Match (EM):     19.00%
-BLEU Score:           0.7771
-Edit Distance (Text): 87.66%
-========================================

@@ -1,11 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from utils import (
-    get_final_tokens,
-    collate_fn,
-    evaluate_official_metrics,
-    clean_formula
-)
+from utils import get_final_tokens, collate_fn, evaluate_official_metrics, clean_formula
 from model import Im2LatexModel
 import pandas as pd
 import torchvision.transforms as T
@@ -26,11 +21,13 @@ SPLITS = {
 IMAGE_SIZE = (64, 320)
 BATCH_SIZE_TRAIN = 32
 BATCH_SIZE_TEST = 1
-EPOCHS = 15
-NUM_TEST_SAMPLES = 100
+EPOCHS = 20
+NUM_TEST_SAMPLES = None
 
 NORMALIZE_MEAN = (0.5,)
 NORMALIZE_STD = (0.5,)
+IS_CUSTOM_ENCODER = False
+
 
 def main():
     print(f"Using device: {device}\n")
@@ -61,7 +58,9 @@ def main():
     vocab.build_vocabulary(tokenized_train)
 
     print("Preparing datasets and data loaders...")
-    train_dataset = Im2LatexDataset(train_df, vocab, tokenized_train, transform=transform)
+    train_dataset = Im2LatexDataset(
+        train_df, vocab, tokenized_train, transform=transform
+    )
     val_dataset = Im2LatexDataset(val_df, vocab, tokenized_val, transform=transform)
 
     train_loader = DataLoader(
@@ -73,9 +72,11 @@ def main():
     print("Data loaders ready.\n")
 
     print("Initializing model...")
-    model = Im2LatexModel(vocab=vocab)
+    model = Im2LatexModel(vocab=vocab, isEncoderCustom=IS_CUSTOM_ENCODER)
     print("Starting training...\n")
-    history = model.train_model(train_loader=train_loader, epochs=EPOCHS, val_loader=val_loader)
+    history = model.train_model(
+        train_loader=train_loader, epochs=EPOCHS, val_loader=val_loader
+    )
     print("Training completed.\n")
 
     print("Drawing learning curve...\n")
@@ -99,7 +100,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE_TEST, shuffle=False)
     print("Test dataset ready.\n")
 
-    print(f"Evaluating model on test set with official metrics (sample of {NUM_TEST_SAMPLES})...")
+    print("Evaluating model on full test set with official metrics...")
     evaluate_official_metrics(model, test_loader, vocab, num_samples=NUM_TEST_SAMPLES)
     print("Evaluation completed.")
 
